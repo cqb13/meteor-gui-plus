@@ -2,7 +2,7 @@
   "required": true,
   "package": "dev.cqb13.GuiPlus.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": [],
+  "client": ["GuiThemeMixin"],
   "injectors": {
     "defaultRequire": 1
   }
