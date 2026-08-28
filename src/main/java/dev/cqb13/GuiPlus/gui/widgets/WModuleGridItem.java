@@ -13,11 +13,18 @@ import static com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT;
 import static com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT;
 
 public class WModuleGridItem extends WPressable {
+    private static final int ITEM_WIDTH_MULTIPLIER = 4;
+    private static final double HOVER_ANIMATION_SPEED = 4;
+    private static final double ACTIVE_ANIMATION_SPEED = 6;
+    private static final int OUTLINE_THICKNESS = 2;
+    private static final int TEXT_PADDING = 4;
+    private static final String ELLIPSIS = "...";
+
     private final Module module;
     private double itemHeight;
 
-    private double animationProgress1;
-    private double animationProgress2;
+    private double hoverAnimation;
+    private double activeAnimation;
 
     public Runnable onRightClick;
 
@@ -27,8 +34,8 @@ public class WModuleGridItem extends WPressable {
         this.tooltip = module.description;
 
         if (module.isActive()) {
-            animationProgress1 = 1;
-            animationProgress2 = 1;
+            hoverAnimation = 1;
+            activeAnimation = 1;
         }
     }
 
@@ -39,7 +46,7 @@ public class WModuleGridItem extends WPressable {
 
     @Override
     protected void onCalculateSize() {
-        width = itemHeight * 4;
+        width = itemHeight * ITEM_WIDTH_MULTIPLIER;
         height = itemHeight;
     }
 
@@ -58,11 +65,11 @@ public class WModuleGridItem extends WPressable {
 
     @Override
     protected void onRender(GuiRenderer renderer, double mouseX, double mouseY, double delta) {
-        animationProgress1 += delta * 4 * ((module.isActive() || mouseOver) ? 1 : -1);
-        animationProgress1 = Mth.clamp(animationProgress1, 0, 1);
+        hoverAnimation += delta * HOVER_ANIMATION_SPEED * ((module.isActive() || mouseOver) ? 1 : -1);
+        hoverAnimation = Mth.clamp(hoverAnimation, 0, 1);
 
-        animationProgress2 += delta * 6 * (module.isActive() ? 1 : -1);
-        animationProgress2 = Mth.clamp(animationProgress2, 0, 1);
+        activeAnimation += delta * ACTIVE_ANIMATION_SPEED * (module.isActive() ? 1 : -1);
+        activeAnimation = Mth.clamp(activeAnimation, 0, 1);
 
         MeteorGuiTheme mgt = (MeteorGuiTheme) theme;
         Color bgColor = mgt.backgroundColor.get(false, mouseOver);
@@ -70,7 +77,7 @@ public class WModuleGridItem extends WPressable {
         Color moduleBgColor = mgt.moduleBackground.get();
         Color accentColor = mgt.accentColor.get();
 
-        double s = theme.scale(2);
+        double s = theme.scale(OUTLINE_THICKNESS);
         renderer.quad(x + s, y + s, width - s * 2, height - s * 2, bgColor);
         renderer.quad(x, y, width, s, outlineColor);
         renderer.quad(x, y + height - s, width, s, outlineColor);
@@ -87,25 +94,26 @@ public class WModuleGridItem extends WPressable {
             renderer.quad(x + width - fo - fs, y + fo + fs, fs, height - fo * 2 - fs * 2, favColor);
         }
 
-        if (animationProgress1 > 0) {
-            renderer.quad(x, y, width * animationProgress1, height, moduleBgColor);
+        if (hoverAnimation > 0) {
+            renderer.quad(x, y, width * hoverAnimation, height, moduleBgColor);
         }
-        if (animationProgress2 > 0) {
-            renderer.quad(x, y + height * (1 - animationProgress2), theme.scale(2), height * animationProgress2,
+        if (activeAnimation > 0) {
+            renderer.quad(x, y + height * (1 - activeAnimation), theme.scale(OUTLINE_THICKNESS),
+                    height * activeAnimation,
                     accentColor);
         }
 
-        double pad = theme.scale(4);
+        double pad = theme.scale(TEXT_PADDING);
         double maxTextWidth = width - pad * 2;
 
         double textY = y + height / 2.0 - theme.textHeight() / 2.0;
 
         String title = module.title;
         if (theme.textWidth(title) > maxTextWidth) {
-            while (theme.textWidth(title + "...") > maxTextWidth && title.length() > 0) {
+            while (theme.textWidth(title + ELLIPSIS) > maxTextWidth && !title.isEmpty()) {
                 title = title.substring(0, title.length() - 1);
             }
-            title = title + "...";
+            title = title + ELLIPSIS;
         }
 
         double textWidth = theme.textWidth(title);

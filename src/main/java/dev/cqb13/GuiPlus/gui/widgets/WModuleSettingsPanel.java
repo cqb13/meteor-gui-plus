@@ -4,6 +4,7 @@ import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.events.meteor.ActiveModulesChangedEvent;
 import meteordevelopment.meteorclient.events.meteor.ModuleBindChangedEvent;
 import meteordevelopment.meteorclient.gui.renderer.GuiRenderer;
+import meteordevelopment.meteorclient.gui.themes.meteor.MeteorGuiTheme;
 import meteordevelopment.meteorclient.gui.utils.Cell;
 import meteordevelopment.meteorclient.gui.widgets.WKeybind;
 import meteordevelopment.meteorclient.gui.widgets.WWidget;
@@ -27,6 +28,13 @@ import net.minecraft.nbt.CompoundTag;
 import java.util.Optional;
 
 public class WModuleSettingsPanel extends WContainer {
+    private static final int VIEW_HEIGHT_OFFSET = 128;
+    private static final int DESCRIPTION_MAX_WIDTH = 600;
+    private static final int MIN_PANEL_WIDTH = 300;
+    private static final int MIN_PANEL_HEIGHT = 200;
+    private static final int OUTLINE_THICKNESS = 2;
+    private static final int PANEL_PADDING = 8;
+
     private final Module module;
 
     private WContainer settingsContainer;
@@ -54,13 +62,13 @@ public class WModuleSettingsPanel extends WContainer {
 
         WView view = (WView) theme.view();
         view.theme = theme;
-        view.maxHeight = getWindowHeight() - theme.scale(128);
+        view.maxHeight = getWindowHeight() - theme.scale(VIEW_HEIGHT_OFFSET);
         view.scrollOnlyWhenMouseOver = true;
         add(view).expandX();
 
         WVerticalList list = new WVerticalList();
         list.theme = theme;
-        view.add(list).expandX().padTop(theme.scale(8)).padBottom(theme.scale(8));
+        view.add(list).expandX().padTop(theme.scale(PANEL_PADDING)).padBottom(theme.scale(PANEL_PADDING));
 
         WHorizontalList titleList = new WHorizontalList();
         titleList.theme = theme;
@@ -72,7 +80,7 @@ public class WModuleSettingsPanel extends WContainer {
 
         titleList.add(theme.label(module.title, true));
 
-        list.add(theme.label(module.description, 600));
+        list.add(theme.label(module.description, DESCRIPTION_MAX_WIDTH));
 
         if (module.addon != null && module.addon != MeteorClient.ADDON) {
             WHorizontalList addon = list.add(theme.horizontalList()).expandX().widget();
@@ -146,11 +154,11 @@ public class WModuleSettingsPanel extends WContainer {
 
     @Override
     public boolean render(GuiRenderer renderer, double mouseX, double mouseY, double delta) {
-        meteordevelopment.meteorclient.gui.themes.meteor.MeteorGuiTheme mgt = (meteordevelopment.meteorclient.gui.themes.meteor.MeteorGuiTheme) theme;
+        MeteorGuiTheme mgt = (MeteorGuiTheme) theme;
         Color bgColor = mgt.backgroundColor.get();
         Color outlineColor = mgt.outlineColor.get();
 
-        double s = theme.scale(2);
+        double s = theme.scale(OUTLINE_THICKNESS);
         renderer.quad(x + s, y + s, width - s * 2, height - s * 2, bgColor);
         renderer.quad(x, y, width, s, outlineColor);
         renderer.quad(x, y + height - s, width, s, outlineColor);
@@ -212,12 +220,12 @@ public class WModuleSettingsPanel extends WContainer {
         }
 
         Cell<?> cell = cells.get(0);
-        double pad = theme.scale(8);
-        double minWidth = theme.scale(300);
-        double maxHeight = getWindowHeight() - theme.scale(128);
+        double pad = theme.scale(PANEL_PADDING);
+        double minWidth = theme.scale(MIN_PANEL_WIDTH);
+        double maxHeight = getWindowHeight() - theme.scale(VIEW_HEIGHT_OFFSET);
 
         width = Math.max(minWidth, cell.widget().width + pad * 2);
-        height = Math.min(maxHeight, Math.max(theme.scale(200), cell.widget().height + pad * 2));
+        height = Math.min(maxHeight, Math.max(theme.scale(MIN_PANEL_HEIGHT), cell.widget().height + pad * 2));
     }
 
     @Override
@@ -227,7 +235,7 @@ public class WModuleSettingsPanel extends WContainer {
         }
 
         Cell<?> cell = cells.get(0);
-        double pad = theme.scale(8);
+        double pad = theme.scale(PANEL_PADDING);
         cell.x = x + pad;
         cell.y = y + pad;
         cell.width = width - pad * 2;

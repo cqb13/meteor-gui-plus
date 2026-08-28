@@ -32,6 +32,10 @@ import static meteordevelopment.meteorclient.utils.Utils.getWindowWidth;
 import static com.mojang.blaze3d.platform.InputConstants.*;
 
 public class GuiPlusModulesScreen extends TabScreen {
+    private static final int DEFAULT_MODULE_HEIGHT = 30;
+    private static final double SIDEBAR_WIDTH_FRACTION = 0.2;
+    private static final int TOP_BAR_HEIGHT = 40;
+
     private WCategorySidebar sidebar;
     private WTextBox searchBox;
     private String currentSearch = "";
@@ -45,8 +49,6 @@ public class GuiPlusModulesScreen extends TabScreen {
     private WModuleGrid moduleGrid;
     private WView contentView;
     private WVerticalList contentList;
-
-    private static final int moduleHeight = 30;
 
     public GuiPlusModulesScreen(GuiTheme theme) {
         super(theme, Tabs.get().getFirst());
@@ -77,14 +79,7 @@ public class GuiPlusModulesScreen extends TabScreen {
             }
         }
 
-        addonCategories.sort((c1, c2) -> {
-            String addon1 = getAddonNameForCategory(c1);
-            String addon2 = getAddonNameForCategory(c2);
-            int addonCompare = addon1.compareToIgnoreCase(addon2);
-            if (addonCompare != 0)
-                return addonCompare;
-            return c1.name.compareToIgnoreCase(c2.name);
-        });
+        addonCategories.sort(this::compareCategoriesByAddon);
 
         for (Category category : addonCategories) {
             categories.add(new CategoryEntry(category.name, category, false, false));
@@ -94,6 +89,15 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         WLayout layout = new WLayout();
         addDirect(layout).expandX().expandWidgetY();
+    }
+
+    private int compareCategoriesByAddon(Category c1, Category c2) {
+        String addon1 = getAddonNameForCategory(c1);
+        String addon2 = getAddonNameForCategory(c2);
+        int addonCompare = addon1.compareToIgnoreCase(addon2);
+        if (addonCompare != 0)
+            return addonCompare;
+        return c1.name.compareToIgnoreCase(c2.name);
     }
 
     private boolean hasVisibleModules(Category category) {
@@ -148,13 +152,8 @@ public class GuiPlusModulesScreen extends TabScreen {
         contentList = new WVerticalList();
         contentView.add(contentList).expandX().expandWidgetY();
 
-        double scale;
-        if (theme instanceof GuiPlusTheme gpt) {
-            scale = gpt.scale.get();
-        } else {
-            scale = 1.0;
-        }
-        double itemHeight = theme.scale(moduleHeight * scale);
+        double scale = (theme instanceof GuiPlusTheme gpt) ? gpt.scale.get() : 1.0;
+        double itemHeight = theme.scale(DEFAULT_MODULE_HEIGHT * scale);
 
         searchBox = contentList.add(theme.textBox(currentSearch, "Search...")).expandX().widget();
         searchBox.action = () -> {
@@ -372,11 +371,10 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         @Override
         protected void onCalculateWidgetPositions() {
-            double sidebarFraction = 0.2;
-            double sidebarW = Math.round(width * sidebarFraction);
+            double sidebarW = Math.round(width * SIDEBAR_WIDTH_FRACTION);
             double contentW = width - sidebarW;
 
-            double topBarHeight = theme.scale(40);
+            double topBarHeight = theme.scale(TOP_BAR_HEIGHT);
             double layoutY = y + topBarHeight;
             double layoutHeight = height - topBarHeight;
 

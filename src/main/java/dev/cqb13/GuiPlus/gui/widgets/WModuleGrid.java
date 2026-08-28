@@ -10,10 +10,15 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class WModuleGrid extends WContainer {
+    private static final double DEFAULT_SPACING = 6;
+    private static final int MAX_COLUMNS = 5;
+    private static final int ITEM_WIDTH_MULTIPLIER = 4;
+    private static final double FALLBACK_WIDTH = 1000;
+
     private final List<Module> modules = new ArrayList<>();
     private double itemHeight;
-    private double horizontalSpacing = 6;
-    private double verticalSpacing = 6;
+    private double horizontalSpacing = DEFAULT_SPACING;
+    private double verticalSpacing = DEFAULT_SPACING;
 
     public Consumer<Module> onModuleRightClick;
 
@@ -66,11 +71,10 @@ public class WModuleGrid extends WContainer {
 
         double hSp = theme.scale(horizontalSpacing);
         double vSp = theme.scale(verticalSpacing);
-        double availableWidth = width > 0 ? width : 1000;
+        double availableWidth = width > 0 ? width : FALLBACK_WIDTH;
 
-        double itemWidth = itemHeight * 4;
-        int maxColumns = 5;
-        int columns = Math.min(maxColumns, Math.max(1, (int) ((availableWidth + hSp) / (itemWidth + hSp))));
+        double itemWidth = itemHeight * ITEM_WIDTH_MULTIPLIER;
+        int columns = Math.min(MAX_COLUMNS, Math.max(1, (int) ((availableWidth + hSp) / (itemWidth + hSp))));
 
         int rows = (int) Math.ceil((double) cells.size() / columns);
 
@@ -85,10 +89,9 @@ public class WModuleGrid extends WContainer {
 
         double hSp = theme.scale(horizontalSpacing);
         double vSp = theme.scale(verticalSpacing);
-        double itemWidth = itemHeight * 4;
+        double itemWidth = itemHeight * ITEM_WIDTH_MULTIPLIER;
 
-        int maxColumns = 5;
-        int columns = Math.min(maxColumns, Math.max(1, (int) ((width + hSp) / (itemWidth + hSp))));
+        int columns = Math.min(MAX_COLUMNS, Math.max(1, (int) ((width + hSp) / (itemWidth + hSp))));
 
         double totalGridWidth = columns * itemWidth + (columns - 1) * hSp;
         double startX = x + (width - totalGridWidth) / 2.0;

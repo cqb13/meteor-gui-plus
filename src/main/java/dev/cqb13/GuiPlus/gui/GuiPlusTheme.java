@@ -1,6 +1,5 @@
 package dev.cqb13.GuiPlus.gui;
 
-
 import meteordevelopment.meteorclient.gui.tabs.TabScreen;
 import meteordevelopment.meteorclient.gui.themes.meteor.MeteorGuiTheme;
 import net.minecraft.client.gui.screens.Screen;
