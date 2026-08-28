@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "gui-plus",
+  "version": "${version}",
+  "name": "GUI+",
+  "description": "A custom grid-based modules GUI theme for Meteor Client.",
+  "authors": ["cqb13"],
+  "contact": {
+    "sources": "https://github.com/cqb13/meteor-gui-plus"
+  },
+  "icon": "assets/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "meteor": ["dev.cqb13.GuiPlus.GuiPlus"]
+  },
+  "mixins": ["gui-plus.mixins.json"],
+  "custom": {
+    "meteor-client:color": "73,107,190",
+    "modmenu": {
+      "parent": {
+        "id": "meteor-client"
+      }
+    }
+  },
+  "depends": {
+    "java": ">=${jdk_version}",
+    "minecraft": "${minecraft_version}",
+    "meteor-client": "*"
+  }
+}

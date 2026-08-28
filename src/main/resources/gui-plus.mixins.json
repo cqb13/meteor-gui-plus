@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "dev.cqb13.GuiPlus.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
