@@ -13,6 +13,7 @@ import meteordevelopment.meteorclient.gui.widgets.containers.WVerticalList;
 import meteordevelopment.meteorclient.gui.widgets.containers.WView;
 import meteordevelopment.meteorclient.gui.widgets.input.WTextBox;
 import meteordevelopment.meteorclient.systems.config.Config;
+import meteordevelopment.meteorclient.systems.modules.Categories;
 import meteordevelopment.meteorclient.systems.modules.Category;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.systems.modules.Modules;
@@ -57,22 +58,60 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         categories.add(new CategoryEntry("Search", null, true, false));
 
-        for (Category category : Modules.loopCategories()) {
-            List<Module> moduleList = new ArrayList<>();
-            for (Module module : Modules.get().getGroup(category)) {
-                if (!Config.get().hiddenModules.get().contains(module)) {
-                    moduleList.add(module);
-                }
-            }
-            if (!moduleList.isEmpty()) {
+        List<Category> defaultCategories = List.of(
+                Categories.Combat, Categories.Player, Categories.Movement,
+                Categories.Render, Categories.World, Categories.Misc);
+
+        for (Category category : defaultCategories) {
+            if (hasVisibleModules(category)) {
                 categories.add(new CategoryEntry(category.name, category, false, false));
             }
+        }
+
+        List<Category> addonCategories = new ArrayList<>();
+        for (Category category : Modules.loopCategories()) {
+            if (!defaultCategories.contains(category)) {
+                if (hasVisibleModules(category)) {
+                    addonCategories.add(category);
+                }
+            }
+        }
+
+        addonCategories.sort((c1, c2) -> {
+            String addon1 = getAddonNameForCategory(c1);
+            String addon2 = getAddonNameForCategory(c2);
+            int addonCompare = addon1.compareToIgnoreCase(addon2);
+            if (addonCompare != 0)
+                return addonCompare;
+            return c1.name.compareToIgnoreCase(c2.name);
+        });
+
+        for (Category category : addonCategories) {
+            categories.add(new CategoryEntry(category.name, category, false, false));
         }
 
         categories.add(new CategoryEntry("Favorites", null, false, true));
 
         WLayout layout = new WLayout();
         addDirect(layout).expandX().expandWidgetY();
+    }
+
+    private boolean hasVisibleModules(Category category) {
+        for (Module module : Modules.get().getGroup(category)) {
+            if (!Config.get().hiddenModules.get().contains(module)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String getAddonNameForCategory(Category category) {
+        for (Module module : Modules.get().getGroup(category)) {
+            if (module.addon != null) {
+                return module.addon.name;
+            }
+        }
+        return "";
     }
 
     private void buildContent() {
