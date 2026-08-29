@@ -3,6 +3,9 @@ package dev.cqb13.GuiPlus.gui;
 import dev.cqb13.GuiPlus.gui.widgets.WCategorySidebar;
 import dev.cqb13.GuiPlus.gui.widgets.WModuleGrid;
 import dev.cqb13.GuiPlus.gui.widgets.WModuleSettingsPanel;
+import dev.cqb13.GuiPlus.gui.widgets.SortMode;
+import dev.cqb13.GuiPlus.gui.widgets.ViewMode;
+import dev.cqb13.GuiPlus.util.ModuleUsageTracker;
 import com.mojang.blaze3d.platform.MacosUtil;
 import meteordevelopment.meteorclient.gui.GuiTheme;
 import meteordevelopment.meteorclient.gui.tabs.TabScreen;
@@ -37,10 +40,10 @@ import static meteordevelopment.meteorclient.utils.Utils.getWindowWidth;
 import static com.mojang.blaze3d.platform.InputConstants.*;
 
 public class GuiPlusModulesScreen extends TabScreen {
-    private static final int DEFAULT_MODULE_HEIGHT = 30;
     private static final double SIDEBAR_WIDTH_FRACTION = 0.2;
     private static final int TOP_BAR_HEIGHT = 40;
     private static final int MAX_HISTORY_SIZE = 10;
+    private static final int MAX_RECENT_MODULES = 20;
 
     private static final List<String> searchHistory = new ArrayList<>();
     private static final Map<String, FilterState> tabFilterStates = new HashMap<>();
@@ -57,6 +60,7 @@ public class GuiPlusModulesScreen extends TabScreen {
     private final List<CategoryEntry> categories = new ArrayList<>();
     private boolean isSearchView = true;
     private boolean isFavoritesView = false;
+    private boolean isRecentView = false;
 
     private WModuleGrid moduleGrid;
     private WVerticalList contentView;
@@ -78,6 +82,8 @@ public class GuiPlusModulesScreen extends TabScreen {
             return "search";
         if (isFavoritesView)
             return "favorites";
+        if (isRecentView)
+            return "recent";
         CategoryEntry entry = getSelectedCategoryEntry();
         if (entry != null && entry.category != null)
             return entry.category.name;
@@ -145,6 +151,7 @@ public class GuiPlusModulesScreen extends TabScreen {
         }
 
         categories.add(new CategoryEntry("Favorites", null, false, true));
+        categories.add(new CategoryEntry("Recent", null, false, false, true));
 
         WLayout layout = new WLayout();
         addDirect(layout).expandX().expandWidgetY();
@@ -209,7 +216,21 @@ public class GuiPlusModulesScreen extends TabScreen {
         contentView.clear();
 
         double scale = (theme instanceof GuiPlusTheme gpt) ? gpt.scale.get() : 1.0;
-        double itemHeight = theme.scale(DEFAULT_MODULE_HEIGHT * scale);
+        int moduleHeightSetting = 30;
+        ViewMode viewMode = ViewMode.Normal;
+        int hSpacing = 6;
+        int vSpacing = 6;
+        int maxColumnsSetting = 10;
+
+        if (theme instanceof GuiPlusTheme gpt) {
+            moduleHeightSetting = gpt.moduleHeight.get();
+            viewMode = gpt.viewMode.get();
+            hSpacing = gpt.horizontalSpacing.get();
+            vSpacing = gpt.verticalSpacing.get();
+            maxColumnsSetting = gpt.maxColumns.get();
+        }
+
+        double itemHeight = theme.scale(moduleHeightSetting * scale);
 
         searchBox = contentView.add(theme.textBox(currentSearch, "Search...")).expandX().widget();
         searchBox.action = () -> {
@@ -263,6 +284,9 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         moduleGrid = new WModuleGrid(itemHeight);
         moduleGrid.width = contentWidth;
+        moduleGrid.setViewMode(viewMode);
+        moduleGrid.setSpacing(theme.scale(hSpacing), theme.scale(vSpacing));
+        moduleGrid.setMaxColumns(maxColumnsSetting);
         moduleGrid.onModuleRightClick = (module) -> {
             selectModule(module);
         };
@@ -306,6 +330,11 @@ public class GuiPlusModulesScreen extends TabScreen {
             if (!currentSearch.isEmpty()) {
                 result.removeIf(m -> !m.title.toLowerCase().contains(currentSearch.toLowerCase()));
             }
+        } else if (isRecentView) {
+            result.addAll(ModuleUsageTracker.getRecentlyUsedModules(MAX_RECENT_MODULES));
+            if (!currentSearch.isEmpty()) {
+                result.removeIf(m -> !m.title.toLowerCase().contains(currentSearch.toLowerCase()));
+            }
         } else {
             CategoryEntry entry = getSelectedCategoryEntry();
             if (entry != null && entry.category != null) {
@@ -333,7 +362,24 @@ public class GuiPlusModulesScreen extends TabScreen {
             });
         }
 
-        result.sort(Comparator.comparing(m -> m.title.toLowerCase()));
+        SortMode sortMode = SortMode.Alphabetical;
+        if (theme instanceof GuiPlusTheme gpt) {
+            sortMode = gpt.sortMode.get();
+        }
+
+        switch (sortMode) {
+            case MostUsed:
+                result.sort(Comparator.comparingInt((Module m) -> ModuleUsageTracker.getUseCount(m)).reversed());
+                break;
+            case RecentlyUsed:
+                result.sort(Comparator.comparingLong((Module m) -> ModuleUsageTracker.getLastUsed(m)).reversed());
+                break;
+            case Alphabetical:
+            default:
+                result.sort(Comparator.comparing(m -> m.title.toLowerCase()));
+                break;
+        }
+
         return result;
     }
 
@@ -426,6 +472,7 @@ public class GuiPlusModulesScreen extends TabScreen {
             settingsPanel.cleanup();
         }
         selectedModule = module;
+        ModuleUsageTracker.recordUsage(module);
         buildContent();
     }
 
@@ -528,6 +575,7 @@ public class GuiPlusModulesScreen extends TabScreen {
                 if (entry != null) {
                     isSearchView = entry.isSearch;
                     isFavoritesView = entry.isFavorites;
+                    isRecentView = entry.isRecent;
                     currentSearch = "";
                     selectedModule = null;
                     settingsPanel = null;
@@ -590,7 +638,11 @@ public class GuiPlusModulesScreen extends TabScreen {
         }
     }
 
-    private record CategoryEntry(String name, Category category, boolean isSearch, boolean isFavorites) {
+    private record CategoryEntry(String name, Category category, boolean isSearch, boolean isFavorites,
+            boolean isRecent) {
+        CategoryEntry(String name, Category category, boolean isSearch, boolean isFavorites) {
+            this(name, category, isSearch, isFavorites, false);
+        }
     }
 
     private class WCenteredContainer extends WContainer {

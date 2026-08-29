@@ -10,14 +10,12 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class WModuleGrid extends WContainer {
-    private static final double DEFAULT_SPACING = 6;
-    private static final int MAX_COLUMNS = 5;
-    private static final int ITEM_WIDTH_MULTIPLIER = 4;
-
     private final List<Module> modules = new ArrayList<>();
     private double itemHeight;
-    private double horizontalSpacing = DEFAULT_SPACING;
-    private double verticalSpacing = DEFAULT_SPACING;
+    private double horizontalSpacing = 6;
+    private double verticalSpacing = 6;
+    private ViewMode viewMode = ViewMode.Normal;
+    private int maxColumns = 10;
 
     public Consumer<Module> onModuleRightClick;
 
@@ -42,6 +40,23 @@ public class WModuleGrid extends WContainer {
         invalidate();
     }
 
+    public void setViewMode(ViewMode viewMode) {
+        this.viewMode = viewMode;
+        rebuildWidgets();
+        invalidate();
+    }
+
+    public void setSpacing(double horizontal, double vertical) {
+        this.horizontalSpacing = horizontal;
+        this.verticalSpacing = vertical;
+        invalidate();
+    }
+
+    public void setMaxColumns(int maxColumns) {
+        this.maxColumns = maxColumns;
+        invalidate();
+    }
+
     @Override
     public void init() {
         rebuildWidgets();
@@ -50,7 +65,7 @@ public class WModuleGrid extends WContainer {
     private void rebuildWidgets() {
         clear();
         for (Module module : modules) {
-            WModuleGridItem item = new WModuleGridItem(module, itemHeight);
+            WModuleGridItem item = new WModuleGridItem(module, itemHeight, viewMode);
             item.onRightClick = () -> {
                 if (onModuleRightClick != null) {
                     onModuleRightClick.accept(module);
@@ -60,10 +75,26 @@ public class WModuleGrid extends WContainer {
         }
     }
 
+    private int getItemWidthMultiplier() {
+        return switch (viewMode) {
+            case Compact -> 2;
+            case Detailed -> 6;
+            case List -> 1;
+            case Normal -> 4;
+        };
+    }
+
     private int calculateColumns(double availableWidth) {
         double hSp = theme.scale(horizontalSpacing);
-        double itemWidth = itemHeight * ITEM_WIDTH_MULTIPLIER;
-        return Math.min(MAX_COLUMNS, Math.max(1, (int) ((availableWidth + hSp) / (itemWidth + hSp))));
+        double itemWidth;
+
+        if (viewMode == ViewMode.List) {
+            return 1;
+        }
+
+        itemWidth = itemHeight * getItemWidthMultiplier();
+        int maxCols = (viewMode == ViewMode.Compact) ? Math.min(8, maxColumns) : maxColumns;
+        return Math.min(maxCols, Math.max(1, (int) ((availableWidth + hSp) / (itemWidth + hSp))));
     }
 
     private int calculateRows(int itemCount, int columns) {
@@ -112,12 +143,20 @@ public class WModuleGrid extends WContainer {
 
         double hSp = theme.scale(horizontalSpacing);
         double vSp = theme.scale(verticalSpacing);
-        double itemWidth = itemHeight * ITEM_WIDTH_MULTIPLIER;
-
         int columns = calculateColumns(width);
 
-        double totalGridWidth = columns * itemWidth + (columns - 1) * hSp;
-        double startX = x + (width - totalGridWidth) / 2.0;
+        double itemWidth;
+        double startX;
+
+        if (viewMode == ViewMode.List) {
+            itemWidth = width;
+            startX = x;
+        } else {
+            itemWidth = itemHeight * getItemWidthMultiplier();
+            double totalGridWidth = columns * itemWidth + (columns - 1) * hSp;
+            startX = x + (width - totalGridWidth) / 2.0;
+        }
+
         double startY = y;
 
         for (int i = 0; i < cells.size(); i++) {

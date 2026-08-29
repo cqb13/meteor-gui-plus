@@ -6,13 +6,9 @@ Meteor theme for a grid GUI
 
 ## Upcoming Features
 
-- Grid Customization
-    - Adjustable item size & spacing, List view with either normal grid or compact grid or detailed cards with description, more sorting options (frequency, custom, etc..)
 - Sidebar Enhancements
     - Module counts in each category, Custom category ordering by dragging, category hiding
 - Module Display: Show keybinds on buttons
-  Quick Actions
-- Recently used tab 
 
 ## Showcase
 

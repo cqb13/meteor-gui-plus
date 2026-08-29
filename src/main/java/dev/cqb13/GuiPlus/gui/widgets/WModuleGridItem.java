@@ -1,6 +1,7 @@
 package dev.cqb13.GuiPlus.gui.widgets;
 
 import dev.cqb13.GuiPlus.gui.GuiPlusTheme;
+import dev.cqb13.GuiPlus.util.ModuleUsageTracker;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.gui.renderer.GuiRenderer;
 import meteordevelopment.meteorclient.gui.themes.meteor.MeteorGuiTheme;
@@ -16,7 +17,6 @@ import static com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT;
 import static com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT;
 
 public class WModuleGridItem extends WPressable {
-    private static final int ITEM_WIDTH_MULTIPLIER = 4;
     private static final double HOVER_ANIMATION_SPEED = 4;
     private static final double ACTIVE_ANIMATION_SPEED = 6;
     private static final int OUTLINE_THICKNESS = 2;
@@ -25,15 +25,17 @@ public class WModuleGridItem extends WPressable {
 
     private final Module module;
     private double itemHeight;
+    private ViewMode viewMode;
 
     private double hoverAnimation;
     private double activeAnimation;
 
     public Runnable onRightClick;
 
-    public WModuleGridItem(Module module, double itemHeight) {
+    public WModuleGridItem(Module module, double itemHeight, ViewMode viewMode) {
         this.module = module;
         this.itemHeight = itemHeight;
+        this.viewMode = viewMode;
         this.tooltip = module.description;
 
         if (module.isActive()) {
@@ -49,7 +51,7 @@ public class WModuleGridItem extends WPressable {
 
     @Override
     protected void onCalculateSize() {
-        width = itemHeight * ITEM_WIDTH_MULTIPLIER;
+        width = parent != null ? parent.width : itemHeight * 4;
         height = itemHeight;
     }
 
@@ -57,6 +59,7 @@ public class WModuleGridItem extends WPressable {
     protected void onPressed(int button) {
         if (button == MOUSE_BUTTON_LEFT) {
             module.toggle();
+            ModuleUsageTracker.recordUsage(module);
         } else if (button == MOUSE_BUTTON_RIGHT) {
             if (onRightClick != null) {
                 onRightClick.run();
@@ -138,6 +141,14 @@ public class WModuleGridItem extends WPressable {
         double pad = theme.scale(TEXT_PADDING);
         double maxTextWidth = width - pad * 2;
 
+        if (viewMode == ViewMode.Detailed) {
+            renderDetailedCard(renderer, pad, maxTextWidth);
+        } else {
+            renderStandardCard(renderer, mgt, pad, maxTextWidth);
+        }
+    }
+
+    private void renderStandardCard(GuiRenderer renderer, MeteorGuiTheme mgt, double pad, double maxTextWidth) {
         double textY = y + height / 2.0 - theme.textHeight() / 2.0;
 
         String title = module.title;
@@ -162,6 +173,64 @@ public class WModuleGridItem extends WPressable {
         }
 
         renderer.text(title, textX, textY, theme.textColor(), false);
+    }
+
+    private void renderDetailedCard(GuiRenderer renderer, double pad, double maxTextWidth) {
+        double textHeight = theme.textHeight();
+        double lineHeight = textHeight + theme.scale(2);
+
+        String title = module.title;
+        if (theme.textWidth(title) > maxTextWidth) {
+            while (theme.textWidth(title + ELLIPSIS) > maxTextWidth && !title.isEmpty()) {
+                title = title.substring(0, title.length() - 1);
+            }
+            title = title + ELLIPSIS;
+        }
+        renderer.text(title, x + pad, y + pad, theme.textColor(), false);
+
+        if (module.description != null && !module.description.isEmpty()) {
+            double descY = y + pad + lineHeight;
+            double availableHeight = height - pad * 2 - lineHeight;
+            int maxLines = (int) (availableHeight / lineHeight);
+            maxLines = Math.min(maxLines, 2);
+
+            String[] words = module.description.split(" ");
+            StringBuilder currentLine = new StringBuilder();
+            int linesRendered = 0;
+
+            for (String word : words) {
+                String testLine = currentLine.length() == 0 ? word : currentLine + " " + word;
+                if (theme.textWidth(testLine) > maxTextWidth) {
+                    if (linesRendered >= maxLines)
+                        break;
+
+                    String line = currentLine.toString();
+                    if (linesRendered == maxLines - 1 && words.length > 0) {
+                        int remainingWords = 0;
+                        for (String w : words) {
+                            if (!currentLine.toString().contains(w))
+                                remainingWords++;
+                        }
+                        if (remainingWords > 0) {
+                            while (theme.textWidth(line + ELLIPSIS) > maxTextWidth && !line.isEmpty()) {
+                                line = line.substring(0, line.length() - 1);
+                            }
+                            line = line + ELLIPSIS;
+                        }
+                    }
+                    renderer.text(line, x + pad, descY + linesRendered * lineHeight, theme.textSecondaryColor(), false);
+                    linesRendered++;
+                    currentLine = new StringBuilder(word);
+                } else {
+                    currentLine = new StringBuilder(testLine);
+                }
+            }
+
+            if (currentLine.length() > 0 && linesRendered < maxLines) {
+                String line = currentLine.toString();
+                renderer.text(line, x + pad, descY + linesRendered * lineHeight, theme.textSecondaryColor(), false);
+            }
+        }
     }
 
     public Module getModule() {

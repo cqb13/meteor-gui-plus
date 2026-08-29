@@ -1,23 +1,74 @@
 package dev.cqb13.GuiPlus.gui;
 
+import dev.cqb13.GuiPlus.gui.widgets.ViewMode;
+import dev.cqb13.GuiPlus.gui.widgets.SortMode;
 import meteordevelopment.meteorclient.gui.tabs.TabScreen;
 import meteordevelopment.meteorclient.gui.themes.meteor.MeteorGuiTheme;
-import meteordevelopment.meteorclient.settings.BoolSetting;
-import meteordevelopment.meteorclient.settings.ColorSetting;
-import meteordevelopment.meteorclient.settings.IntSetting;
-import meteordevelopment.meteorclient.settings.Setting;
-import meteordevelopment.meteorclient.settings.SettingGroup;
+import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import net.minecraft.client.gui.screens.Screen;
 
 public class GuiPlusTheme extends MeteorGuiTheme {
     private final SettingGroup sgGuiPlus = settings.createGroup("GUI Plus");
+    private final SettingGroup sgGridCustomization = settings.createGroup("Grid Customization");
     private final SettingGroup sgCategoryColors = settings.createGroup("Category Colors");
 
     public final Setting<Boolean> enableSearchHistory = sgGuiPlus.add(new BoolSetting.Builder()
             .name("enable-search-history")
             .description("Enable search history suggestions.")
             .defaultValue(false)
+            .build());
+
+    public final Setting<ViewMode> viewMode = sgGridCustomization.add(new EnumSetting.Builder<ViewMode>()
+            .name("view-mode")
+            .description("How modules are displayed in the grid.")
+            .defaultValue(ViewMode.Normal)
+            .build());
+
+    public final Setting<SortMode> sortMode = sgGridCustomization.add(new EnumSetting.Builder<SortMode>()
+            .name("sort-mode")
+            .description("How modules are sorted.")
+            .defaultValue(SortMode.Alphabetical)
+            .build());
+
+    public final Setting<Integer> moduleHeight = sgGridCustomization.add(new IntSetting.Builder()
+            .name("module-height")
+            .description("Height of module buttons.")
+            .defaultValue(30)
+            .min(20)
+            .max(50)
+            .sliderMin(20)
+            .sliderMax(50)
+            .build());
+
+    public final Setting<Integer> horizontalSpacing = sgGridCustomization.add(new IntSetting.Builder()
+            .name("horizontal-spacing")
+            .description("Horizontal spacing between modules.")
+            .defaultValue(6)
+            .min(0)
+            .max(20)
+            .sliderMin(0)
+            .sliderMax(20)
+            .build());
+
+    public final Setting<Integer> verticalSpacing = sgGridCustomization.add(new IntSetting.Builder()
+            .name("vertical-spacing")
+            .description("Vertical spacing between modules.")
+            .defaultValue(6)
+            .min(0)
+            .max(20)
+            .sliderMin(0)
+            .sliderMax(20)
+            .build());
+
+    public final Setting<Integer> maxColumns = sgGridCustomization.add(new IntSetting.Builder()
+            .name("max-columns")
+            .description("Maximum number of columns in the module grid.")
+            .defaultValue(10)
+            .min(1)
+            .max(20)
+            .sliderMin(1)
+            .sliderMax(20)
             .build());
 
     public final Setting<Boolean> categoryColors = sgCategoryColors.add(new BoolSetting.Builder()
