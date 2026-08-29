@@ -16,6 +16,8 @@ public class WModuleGrid extends WContainer {
     private double verticalSpacing = 6;
     private ViewMode viewMode = ViewMode.Normal;
     private int maxColumns = 10;
+    private int cachedColumns = -1;
+    private double cachedWidth = -1;
 
     public Consumer<Module> onModuleRightClick;
 
@@ -27,16 +29,6 @@ public class WModuleGrid extends WContainer {
         this.modules.clear();
         this.modules.addAll(modules);
         rebuildWidgets();
-        invalidate();
-    }
-
-    public void setItemHeight(double itemHeight) {
-        this.itemHeight = itemHeight;
-        for (Cell<?> cell : cells) {
-            if (cell.widget() instanceof WModuleGridItem item) {
-                item.setItemHeight(itemHeight);
-            }
-        }
         invalidate();
     }
 
@@ -85,16 +77,23 @@ public class WModuleGrid extends WContainer {
     }
 
     private int calculateColumns(double availableWidth) {
+        if (availableWidth == cachedWidth && cachedColumns >= 0) {
+            return cachedColumns;
+        }
+
         double hSp = theme.scale(horizontalSpacing);
-        double itemWidth;
 
         if (viewMode == ViewMode.List) {
+            cachedColumns = 1;
+            cachedWidth = availableWidth;
             return 1;
         }
 
-        itemWidth = itemHeight * getItemWidthMultiplier();
+        double itemWidth = itemHeight * getItemWidthMultiplier();
         int maxCols = (viewMode == ViewMode.Compact) ? Math.min(8, maxColumns) : maxColumns;
-        return Math.min(maxCols, Math.max(1, (int) ((availableWidth + hSp) / (itemWidth + hSp))));
+        cachedColumns = Math.min(maxCols, Math.max(1, (int) ((availableWidth + hSp) / (itemWidth + hSp))));
+        cachedWidth = availableWidth;
+        return cachedColumns;
     }
 
     private int calculateRows(int itemCount, int columns) {

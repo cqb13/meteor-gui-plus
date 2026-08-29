@@ -53,7 +53,7 @@ public class GuiPlusModulesScreen extends TabScreen {
 
     private WCategorySidebar sidebar;
     private WTextBox searchBox;
-    private String currentSearch = "";
+    private String searchText = "";
     private Module selectedModule;
     private WModuleSettingsPanel settingsPanel;
 
@@ -91,39 +91,60 @@ public class GuiPlusModulesScreen extends TabScreen {
     }
 
     private void saveCurrentFilterState() {
-        if (activeCheckbox != null && favoritesCheckbox != null && unboundCheckbox != null) {
-            tabFilterStates.put(currentTabKey, new FilterState(
-                    activeCheckbox.checked,
-                    favoritesCheckbox.checked,
-                    unboundCheckbox.checked));
-        }
+        if (activeCheckbox == null || favoritesCheckbox == null || unboundCheckbox == null)
+            return;
+        tabFilterStates.put(currentTabKey, new FilterState(
+                activeCheckbox.checked, favoritesCheckbox.checked, unboundCheckbox.checked));
     }
 
     private void loadFilterState() {
         currentTabKey = getCurrentTabKey();
         FilterState state = tabFilterStates.get(currentTabKey);
-        if (state != null) {
-            if (activeCheckbox != null)
-                activeCheckbox.checked = state.active();
-            if (favoritesCheckbox != null)
-                favoritesCheckbox.checked = state.favorites();
-            if (unboundCheckbox != null)
-                unboundCheckbox.checked = state.unbound();
-        } else {
-            if (activeCheckbox != null)
-                activeCheckbox.checked = false;
-            if (favoritesCheckbox != null)
-                favoritesCheckbox.checked = false;
-            if (unboundCheckbox != null)
-                unboundCheckbox.checked = false;
-        }
+        boolean active = state != null && state.active();
+        boolean favorites = state != null && state.favorites();
+        boolean unbound = state != null && state.unbound();
+
+        if (activeCheckbox != null)
+            activeCheckbox.checked = active;
+        if (favoritesCheckbox != null)
+            favoritesCheckbox.checked = favorites;
+        if (unboundCheckbox != null)
+            unboundCheckbox.checked = unbound;
+    }
+
+    private boolean matchesSearch(Module m) {
+        if (searchText.isEmpty())
+            return true;
+        String searchLower = searchText.toLowerCase();
+        return m.title.toLowerCase().contains(searchLower) || m.description.toLowerCase().contains(searchLower);
+    }
+
+    private boolean matchesTitleSearch(Module m) {
+        if (searchText.isEmpty())
+            return true;
+        return m.title.toLowerCase().contains(searchText.toLowerCase());
+    }
+
+    private boolean passesQuickFilters(Module m) {
+        boolean hasActiveFilter = (activeCheckbox != null && activeCheckbox.checked) ||
+                (favoritesCheckbox != null && favoritesCheckbox.checked) ||
+                (unboundCheckbox != null && unboundCheckbox.checked);
+
+        if (!hasActiveFilter)
+            return true;
+
+        boolean matchesActive = activeCheckbox != null && activeCheckbox.checked && m.isActive();
+        boolean matchesFavorites = favoritesCheckbox != null && favoritesCheckbox.checked && m.favorite;
+        boolean matchesUnbound = unboundCheckbox != null && unboundCheckbox.checked && !m.keybind.isSet();
+
+        return matchesActive || matchesFavorites || matchesUnbound;
     }
 
     @Override
     public void initWidgets() {
         categories.clear();
 
-        categories.add(new CategoryEntry("Search", null, true, false));
+        categories.add(new CategoryEntry("Search", null, true, false, false));
 
         List<Category> defaultCategories = List.of(
                 Categories.Combat, Categories.Player, Categories.Movement,
@@ -131,7 +152,7 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         for (Category category : defaultCategories) {
             if (hasVisibleModules(category)) {
-                categories.add(new CategoryEntry(category.name, category, false, false));
+                categories.add(new CategoryEntry(category.name, category, false, false, false));
             }
         }
 
@@ -147,10 +168,10 @@ public class GuiPlusModulesScreen extends TabScreen {
         addonCategories.sort(this::compareCategoriesByAddon);
 
         for (Category category : addonCategories) {
-            categories.add(new CategoryEntry(category.name, category, false, false));
+            categories.add(new CategoryEntry(category.name, category, false, false, false));
         }
 
-        categories.add(new CategoryEntry("Favorites", null, false, true));
+        categories.add(new CategoryEntry("Favorites", null, false, true, false));
         categories.add(new CategoryEntry("Recent", null, false, false, true));
 
         WLayout layout = new WLayout();
@@ -202,9 +223,8 @@ public class GuiPlusModulesScreen extends TabScreen {
         selectedModule = null;
         settingsPanel = null;
 
-        if (contentView == null) {
+        if (contentView == null)
             return;
-        }
 
         contentView.visible = true;
 
@@ -215,26 +235,19 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         contentView.clear();
 
-        double scale = (theme instanceof GuiPlusTheme gpt) ? gpt.scale.get() : 1.0;
-        int moduleHeightSetting = 30;
-        ViewMode viewMode = ViewMode.Normal;
-        int hSpacing = 6;
-        int vSpacing = 6;
-        int maxColumnsSetting = 10;
+        GuiPlusTheme gpt = theme instanceof GuiPlusTheme g ? g : null;
+        double scale = gpt != null ? gpt.scale.get() : 1.0;
+        int moduleHeight = gpt != null ? gpt.moduleHeight.get() : 30;
+        ViewMode viewMode = gpt != null ? gpt.viewMode.get() : ViewMode.Normal;
+        int hSpacing = gpt != null ? gpt.horizontalSpacing.get() : 6;
+        int vSpacing = gpt != null ? gpt.verticalSpacing.get() : 6;
+        int maxColumns = gpt != null ? gpt.maxColumns.get() : 10;
 
-        if (theme instanceof GuiPlusTheme gpt) {
-            moduleHeightSetting = gpt.moduleHeight.get();
-            viewMode = gpt.viewMode.get();
-            hSpacing = gpt.horizontalSpacing.get();
-            vSpacing = gpt.verticalSpacing.get();
-            maxColumnsSetting = gpt.maxColumns.get();
-        }
+        double itemHeight = theme.scale(moduleHeight * scale);
 
-        double itemHeight = theme.scale(moduleHeightSetting * scale);
-
-        searchBox = contentView.add(theme.textBox(currentSearch, "Search...")).expandX().widget();
+        searchBox = contentView.add(theme.textBox(searchText, "Search...")).expandX().widget();
         searchBox.action = () -> {
-            currentSearch = searchBox.get();
+            searchText = searchBox.get();
             updateHistoryDropdown();
             refreshGrid();
         };
@@ -243,21 +256,15 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         filterRow.add(theme.label("Active"));
         activeCheckbox = filterRow.add(theme.checkbox(false)).widget();
-        activeCheckbox.action = () -> {
-            refreshGrid();
-        };
+        activeCheckbox.action = this::refreshGrid;
 
         filterRow.add(theme.label("Favorites"));
         favoritesCheckbox = filterRow.add(theme.checkbox(false)).widget();
-        favoritesCheckbox.action = () -> {
-            refreshGrid();
-        };
+        favoritesCheckbox.action = this::refreshGrid;
 
         filterRow.add(theme.label("Unbound"));
         unboundCheckbox = filterRow.add(theme.checkbox(false)).widget();
-        unboundCheckbox.action = () -> {
-            refreshGrid();
-        };
+        unboundCheckbox.action = this::refreshGrid;
 
         loadFilterState();
 
@@ -286,10 +293,8 @@ public class GuiPlusModulesScreen extends TabScreen {
         moduleGrid.width = contentWidth;
         moduleGrid.setViewMode(viewMode);
         moduleGrid.setSpacing(theme.scale(hSpacing), theme.scale(vSpacing));
-        moduleGrid.setMaxColumns(maxColumnsSetting);
-        moduleGrid.onModuleRightClick = (module) -> {
-            selectModule(module);
-        };
+        moduleGrid.setMaxColumns(maxColumns);
+        moduleGrid.onModuleRightClick = this::selectModule;
         gridScrollView.add(moduleGrid).expandX();
 
         refreshGrid();
@@ -302,65 +307,39 @@ public class GuiPlusModulesScreen extends TabScreen {
     private void refreshGrid() {
         if (moduleGrid == null)
             return;
-
-        List<Module> modules = getFilteredModules();
-        moduleGrid.setModules(modules);
+        moduleGrid.setModules(getFilteredModules());
     }
 
     private List<Module> getFilteredModules() {
         List<Module> result = new ArrayList<>();
 
         if (isSearchView) {
-            if (currentSearch.isEmpty()) {
-                result.addAll(Modules.get().getAll());
-            } else {
-                String searchLower = currentSearch.toLowerCase();
-                for (Module m : Modules.get().getAll()) {
-                    if (m.title.toLowerCase().contains(searchLower) ||
-                            m.description.toLowerCase().contains(searchLower)) {
-                        result.add(m);
-                    }
-                }
+            for (Module m : Modules.get().getAll()) {
+                if (matchesSearch(m))
+                    result.add(m);
             }
         } else if (isFavoritesView) {
             for (Module m : Modules.get().getAll()) {
-                if (m.favorite)
+                if (m.favorite && matchesTitleSearch(m))
                     result.add(m);
             }
-            if (!currentSearch.isEmpty()) {
-                result.removeIf(m -> !m.title.toLowerCase().contains(currentSearch.toLowerCase()));
-            }
         } else if (isRecentView) {
-            result.addAll(ModuleUsageTracker.getRecentlyUsedModules(MAX_RECENT_MODULES));
-            if (!currentSearch.isEmpty()) {
-                result.removeIf(m -> !m.title.toLowerCase().contains(currentSearch.toLowerCase()));
+            for (Module m : ModuleUsageTracker.getRecentlyUsedModules(MAX_RECENT_MODULES)) {
+                if (matchesTitleSearch(m))
+                    result.add(m);
             }
         } else {
             CategoryEntry entry = getSelectedCategoryEntry();
             if (entry != null && entry.category != null) {
                 for (Module m : Modules.get().getGroup(entry.category)) {
-                    if (!Config.get().hiddenModules.get().contains(m)) {
+                    if (!Config.get().hiddenModules.get().contains(m) && matchesTitleSearch(m)) {
                         result.add(m);
                     }
-                }
-                if (!currentSearch.isEmpty()) {
-                    result.removeIf(m -> !m.title.toLowerCase().contains(currentSearch.toLowerCase()));
                 }
             }
         }
 
-        boolean hasActiveFilter = (activeCheckbox != null && activeCheckbox.checked) ||
-                (favoritesCheckbox != null && favoritesCheckbox.checked) ||
-                (unboundCheckbox != null && unboundCheckbox.checked);
-
-        if (hasActiveFilter) {
-            result.removeIf(m -> {
-                boolean matchesActive = activeCheckbox != null && activeCheckbox.checked && m.isActive();
-                boolean matchesFavorites = favoritesCheckbox != null && favoritesCheckbox.checked && m.favorite;
-                boolean matchesUnbound = unboundCheckbox != null && unboundCheckbox.checked && !m.keybind.isSet();
-                return !(matchesActive || matchesFavorites || matchesUnbound);
-            });
-        }
+        result.removeIf(m -> !passesQuickFilters(m));
 
         SortMode sortMode = SortMode.Alphabetical;
         if (theme instanceof GuiPlusTheme gpt) {
@@ -389,14 +368,14 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         boolean historyEnabled = theme instanceof GuiPlusTheme gpt && gpt.enableSearchHistory.get();
 
-        if (!historyEnabled || currentSearch.isEmpty()) {
+        if (!historyEnabled || searchText.isEmpty()) {
             historyDropdown.visible = false;
             historyDropdown.clear();
             currentHistorySuggestions.clear();
             return;
         }
 
-        String searchLower = currentSearch.toLowerCase();
+        String searchLower = searchText.toLowerCase();
         currentHistorySuggestions = searchHistory.stream()
                 .filter(h -> h.toLowerCase().contains(searchLower))
                 .limit(5)
@@ -412,7 +391,7 @@ public class GuiPlusModulesScreen extends TabScreen {
         for (String suggestion : currentHistorySuggestions) {
             var button = historyDropdown.add(theme.button(suggestion)).expandX().widget();
             button.action = () -> {
-                currentSearch = suggestion;
+                searchText = suggestion;
                 searchBox.set(suggestion);
                 addToHistory(suggestion);
                 historyDropdown.visible = false;
@@ -436,12 +415,10 @@ public class GuiPlusModulesScreen extends TabScreen {
     }
 
     private CategoryEntry getSelectedCategoryEntry() {
-        if (sidebar == null) {
+        if (sidebar == null)
             return null;
-        }
 
         int idx = sidebar.getSelected();
-
         if (idx >= 0 && idx < categories.size()) {
             return categories.get(idx);
         }
@@ -454,7 +431,6 @@ public class GuiPlusModulesScreen extends TabScreen {
             return;
 
         contentView.clear();
-
         contentView.visible = false;
 
         settingsPanel = new WModuleSettingsPanel(selectedModule);
@@ -499,14 +475,14 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         if (value.key() == KEY_RETURN && searchBox != null && searchBox.isFocused()) {
             if (!currentHistorySuggestions.isEmpty()) {
-                currentSearch = currentHistorySuggestions.get(0);
-                searchBox.set(currentSearch);
-                addToHistory(currentSearch);
+                searchText = currentHistorySuggestions.get(0);
+                searchBox.set(searchText);
+                addToHistory(searchText);
                 historyDropdown.visible = false;
                 refreshGrid();
                 return true;
-            } else if (!currentSearch.isEmpty()) {
-                addToHistory(currentSearch);
+            } else if (!searchText.isEmpty()) {
+                addToHistory(searchText);
                 historyDropdown.visible = false;
                 return true;
             }
@@ -576,7 +552,7 @@ public class GuiPlusModulesScreen extends TabScreen {
                     isSearchView = entry.isSearch;
                     isFavoritesView = entry.isFavorites;
                     isRecentView = entry.isRecent;
-                    currentSearch = "";
+                    searchText = "";
                     selectedModule = null;
                     settingsPanel = null;
                     buildContent();
@@ -640,9 +616,6 @@ public class GuiPlusModulesScreen extends TabScreen {
 
     private record CategoryEntry(String name, Category category, boolean isSearch, boolean isFavorites,
             boolean isRecent) {
-        CategoryEntry(String name, Category category, boolean isSearch, boolean isFavorites) {
-            this(name, category, isSearch, isFavorites, false);
-        }
     }
 
     private class WCenteredContainer extends WContainer {
@@ -659,9 +632,8 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         @Override
         protected void onCalculateWidgetPositions() {
-            if (cells.isEmpty()) {
+            if (cells.isEmpty())
                 return;
-            }
 
             Cell<?> cell = cells.get(0);
 

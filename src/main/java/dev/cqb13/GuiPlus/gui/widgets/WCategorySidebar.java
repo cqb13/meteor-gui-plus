@@ -26,8 +26,6 @@ public class WCategorySidebar extends WContainer {
     private int selected = 0;
 
     public Runnable onSelectionChanged;
-    public Runnable onSettingsClicked;
-    private SettingsButton settingsButton;
 
     public void addButton(String label, Category category) {
         SidebarButton button = new SidebarButton(label, category);
@@ -40,14 +38,6 @@ public class WCategorySidebar extends WContainer {
         for (SidebarButton button : buttons) {
             button.theme = this.theme;
         }
-        if (settingsButton != null) {
-            settingsButton.theme = this.theme;
-        }
-    }
-
-    public void addSettingsButton() {
-        settingsButton = new SettingsButton();
-        super.add(settingsButton);
     }
 
     public void setSelected(int index) {
@@ -124,10 +114,18 @@ public class WCategorySidebar extends WContainer {
         public final String label;
         public final Category category;
         private double animProgress;
+        private int cachedIndex = -1;
 
         public SidebarButton(String label, Category category) {
             this.label = label;
             this.category = category;
+        }
+
+        private int getIndex() {
+            if (cachedIndex < 0) {
+                cachedIndex = buttons.indexOf(this);
+            }
+            return cachedIndex;
         }
 
         @Override
@@ -151,7 +149,7 @@ public class WCategorySidebar extends WContainer {
 
         @Override
         protected void onPressed(int button) {
-            int index = buttons.indexOf(this);
+            int index = getIndex();
             if (index >= 0) {
                 selected = index;
                 if (onSelectionChanged != null)
@@ -161,7 +159,7 @@ public class WCategorySidebar extends WContainer {
 
         @Override
         protected void onRender(GuiRenderer renderer, double mouseX, double mouseY, double delta) {
-            boolean isSelected = buttons.indexOf(this) == selected;
+            boolean isSelected = getIndex() == selected;
 
             double targetAnim = (isSelected || mouseOver) ? 1 : 0;
             animProgress += delta * ANIMATION_SPEED * (targetAnim - animProgress);
@@ -197,63 +195,6 @@ public class WCategorySidebar extends WContainer {
             }
 
             renderer.text(label, textX, y + height / 2.0 - theme.textHeight() / 2.0,
-                    theme.textColor(), false);
-        }
-    }
-
-    public class SettingsButton extends WPressable {
-        private static final String LABEL = "Settings";
-
-        private double animProgress;
-
-        public SettingsButton() {
-            this.tooltip = "GUI+ Settings";
-        }
-
-        @Override
-        protected void onCalculateSize() {
-            double pad = theme.scale(BUTTON_PADDING);
-            width = theme.textWidth(LABEL) + pad * 2 + theme.scale(EXTRA_PADDING);
-            height = theme.textHeight() + pad * 2;
-        }
-
-        @Override
-        protected void onCalculateWidgetPositions() {
-            super.onCalculateWidgetPositions();
-            if (parent != null) {
-                width = parent.width;
-            }
-        }
-
-        @Override
-        protected void onPressed(int button) {
-            if (onSettingsClicked != null)
-                onSettingsClicked.run();
-        }
-
-        @Override
-        protected void onRender(GuiRenderer renderer, double mouseX, double mouseY, double delta) {
-            double targetAnim = mouseOver ? 1 : 0;
-            animProgress += delta * ANIMATION_SPEED * (targetAnim - animProgress);
-            animProgress = Mth.clamp(animProgress, 0, 1);
-
-            if (animProgress < 0.01)
-                animProgress = 0;
-
-            MeteorGuiTheme mgt = (MeteorGuiTheme) theme;
-            Color bgColor = mgt.backgroundColor.get();
-            Color hoverBg = mgt.backgroundColor.get(false, true);
-            Color accentColor = mgt.accentColor.get();
-
-            if (animProgress > 0) {
-                Color blended = blendColors(bgColor, hoverBg, animProgress);
-                renderer.quad(x, y, width, height, blended);
-            }
-
-            renderer.quad(x, y, theme.scale(ACCENT_BAR_WIDTH), height, accentColor);
-
-            double pad = theme.scale(BUTTON_PADDING);
-            renderer.text(LABEL, x + pad + theme.scale(ACCENT_BAR_WIDTH), y + height / 2.0 - theme.textHeight() / 2.0,
                     theme.textColor(), false);
         }
     }

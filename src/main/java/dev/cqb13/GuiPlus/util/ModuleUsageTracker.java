@@ -16,14 +16,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class ModuleUsageTracker {
     private static final Map<String, UsageData> usageData = new HashMap<>();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final ScheduledExecutorService SAVE_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
+    private static final long SAVE_DEBOUNCE_MS = 1000;
     private static File usageFile;
+    private static long lastSaveTime = 0;
 
-    public record UsageData(int useCount, long lastUsed) {
+    public record UsageData(int toggleCount, long lastUsedTimestamp) {
     }
 
     public static void init(File configDir) {
@@ -37,51 +43,53 @@ public class ModuleUsageTracker {
 
         String moduleName = module.name;
         UsageData existing = usageData.get(moduleName);
+        long now = System.currentTimeMillis();
 
         if (existing != null) {
-            usageData.put(moduleName, new UsageData(existing.useCount() + 1, System.currentTimeMillis()));
+            usageData.put(moduleName, new UsageData(existing.toggleCount() + 1, now));
         } else {
-            usageData.put(moduleName, new UsageData(1, System.currentTimeMillis()));
+            usageData.put(moduleName, new UsageData(1, now));
         }
 
-        save();
+        scheduleSave();
     }
 
     public static int getUseCount(Module module) {
         if (module == null)
             return 0;
         UsageData data = usageData.get(module.name);
-        return data != null ? data.useCount() : 0;
+        return data != null ? data.toggleCount() : 0;
     }
 
     public static long getLastUsed(Module module) {
         if (module == null)
             return 0;
         UsageData data = usageData.get(module.name);
-        return data != null ? data.lastUsed() : 0;
-    }
-
-    public static List<Module> getMostUsedModules(int limit) {
-        return usageData.entrySet().stream()
-                .sorted(Map.Entry.<String, UsageData>comparingByValue(
-                        Comparator.comparingInt(UsageData::useCount).reversed()))
-                .limit(limit)
-                .map(entry -> Modules.get().get(entry.getKey()))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        return data != null ? data.lastUsedTimestamp() : 0;
     }
 
     public static List<Module> getRecentlyUsedModules(int limit) {
         return usageData.entrySet().stream()
                 .sorted(Map.Entry.<String, UsageData>comparingByValue(
-                        Comparator.comparingLong(UsageData::lastUsed).reversed()))
+                        Comparator.comparingLong(UsageData::lastUsedTimestamp).reversed()))
                 .limit(limit)
                 .map(entry -> Modules.get().get(entry.getKey()))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
-    public static void save() {
+    private static void scheduleSave() {
+        long now = System.currentTimeMillis();
+        if (now - lastSaveTime < SAVE_DEBOUNCE_MS)
+            return;
+
+        lastSaveTime = now;
+        SAVE_EXECUTOR.schedule(() -> {
+            save();
+        }, SAVE_DEBOUNCE_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private static void save() {
         if (usageFile == null)
             return;
 
@@ -95,7 +103,7 @@ public class ModuleUsageTracker {
         }
     }
 
-    public static void load() {
+    private static void load() {
         if (usageFile == null || !usageFile.exists())
             return;
 
