@@ -164,7 +164,12 @@ public class GuiPlusModulesScreen extends TabScreen {
         gridScrollView.hasScrollBar = true;
         contentView.add(gridScrollView).expandX().expandWidgetY();
 
+        double windowWidth = getWindowWidth();
+        double sidebarWidth = Math.round(windowWidth * SIDEBAR_WIDTH_FRACTION);
+        double contentWidth = windowWidth - sidebarWidth;
+
         moduleGrid = new WModuleGrid(itemHeight);
+        moduleGrid.width = contentWidth;
         moduleGrid.onModuleRightClick = (module) -> {
             selectModule(module);
         };

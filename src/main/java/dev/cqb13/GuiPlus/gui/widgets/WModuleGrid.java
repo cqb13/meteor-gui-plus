@@ -13,7 +13,6 @@ public class WModuleGrid extends WContainer {
     private static final double DEFAULT_SPACING = 6;
     private static final int MAX_COLUMNS = 5;
     private static final int ITEM_WIDTH_MULTIPLIER = 4;
-    private static final double FALLBACK_WIDTH = 1000;
 
     private final List<Module> modules = new ArrayList<>();
     private double itemHeight;
@@ -61,6 +60,21 @@ public class WModuleGrid extends WContainer {
         }
     }
 
+    private int calculateColumns(double availableWidth) {
+        double hSp = theme.scale(horizontalSpacing);
+        double itemWidth = itemHeight * ITEM_WIDTH_MULTIPLIER;
+        return Math.min(MAX_COLUMNS, Math.max(1, (int) ((availableWidth + hSp) / (itemWidth + hSp))));
+    }
+
+    private int calculateRows(int itemCount, int columns) {
+        return (int) Math.ceil((double) itemCount / columns);
+    }
+
+    private double calculateHeight(int rows) {
+        double vSp = theme.scale(verticalSpacing);
+        return rows * itemHeight + Math.max(0, rows - 1) * vSp;
+    }
+
     @Override
     protected void onCalculateSize() {
         if (cells.isEmpty()) {
@@ -69,17 +83,26 @@ public class WModuleGrid extends WContainer {
             return;
         }
 
-        double hSp = theme.scale(horizontalSpacing);
-        double vSp = theme.scale(verticalSpacing);
-        double availableWidth = width > 0 ? width : FALLBACK_WIDTH;
+        double availableWidth = width;
+        if (availableWidth <= 0) {
+            WWidget p = parent;
+            while (p != null && p.width <= 0) {
+                p = p.parent;
+            }
+            if (p != null) {
+                availableWidth = p.width;
+            }
+        }
 
-        double itemWidth = itemHeight * ITEM_WIDTH_MULTIPLIER;
-        int columns = Math.min(MAX_COLUMNS, Math.max(1, (int) ((availableWidth + hSp) / (itemWidth + hSp))));
+        if (availableWidth <= 0) {
+            availableWidth = 800;
+        }
 
-        int rows = (int) Math.ceil((double) cells.size() / columns);
+        int columns = calculateColumns(availableWidth);
+        int rows = calculateRows(cells.size(), columns);
 
         width = availableWidth;
-        height = rows * itemHeight + Math.max(0, rows - 1) * vSp;
+        height = calculateHeight(rows);
     }
 
     @Override
@@ -91,7 +114,7 @@ public class WModuleGrid extends WContainer {
         double vSp = theme.scale(verticalSpacing);
         double itemWidth = itemHeight * ITEM_WIDTH_MULTIPLIER;
 
-        int columns = Math.min(MAX_COLUMNS, Math.max(1, (int) ((width + hSp) / (itemWidth + hSp))));
+        int columns = calculateColumns(width);
 
         double totalGridWidth = columns * itemWidth + (columns - 1) * hSp;
         double startX = x + (width - totalGridWidth) / 2.0;
@@ -115,7 +138,7 @@ public class WModuleGrid extends WContainer {
             widget.height = cell.height;
         }
 
-        double lastRow = (cells.size() - 1) / columns;
-        height = (lastRow + 1) * itemHeight + (int) lastRow * vSp;
+        int rows = calculateRows(cells.size(), columns);
+        height = calculateHeight(rows);
     }
 }
