@@ -9,9 +9,11 @@ import meteordevelopment.meteorclient.gui.tabs.TabScreen;
 import meteordevelopment.meteorclient.gui.tabs.Tabs;
 import meteordevelopment.meteorclient.gui.widgets.WWidget;
 import meteordevelopment.meteorclient.gui.widgets.containers.WContainer;
+import meteordevelopment.meteorclient.gui.widgets.containers.WHorizontalList;
 import meteordevelopment.meteorclient.gui.widgets.containers.WVerticalList;
 import meteordevelopment.meteorclient.gui.widgets.containers.WView;
 import meteordevelopment.meteorclient.gui.widgets.input.WTextBox;
+import meteordevelopment.meteorclient.gui.widgets.pressable.WCheckbox;
 import meteordevelopment.meteorclient.systems.config.Config;
 import meteordevelopment.meteorclient.systems.modules.Categories;
 import meteordevelopment.meteorclient.systems.modules.Category;
@@ -25,7 +27,10 @@ import meteordevelopment.meteorclient.gui.utils.Cell;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static meteordevelopment.meteorclient.utils.Utils.getWindowHeight;
 import static meteordevelopment.meteorclient.utils.Utils.getWindowWidth;
@@ -35,6 +40,13 @@ public class GuiPlusModulesScreen extends TabScreen {
     private static final int DEFAULT_MODULE_HEIGHT = 30;
     private static final double SIDEBAR_WIDTH_FRACTION = 0.2;
     private static final int TOP_BAR_HEIGHT = 40;
+    private static final int MAX_HISTORY_SIZE = 10;
+
+    private static final List<String> searchHistory = new ArrayList<>();
+    private static final Map<String, FilterState> tabFilterStates = new HashMap<>();
+
+    private record FilterState(boolean active, boolean favorites, boolean unbound) {
+    }
 
     private WCategorySidebar sidebar;
     private WTextBox searchBox;
@@ -50,8 +62,55 @@ public class GuiPlusModulesScreen extends TabScreen {
     private WVerticalList contentView;
     private WView gridScrollView;
 
+    private WCheckbox activeCheckbox;
+    private WCheckbox favoritesCheckbox;
+    private WCheckbox unboundCheckbox;
+    private WVerticalList historyDropdown;
+    private List<String> currentHistorySuggestions = new ArrayList<>();
+    private String currentTabKey = "search";
+
     public GuiPlusModulesScreen(GuiTheme theme) {
         super(theme, Tabs.get().getFirst());
+    }
+
+    private String getCurrentTabKey() {
+        if (isSearchView)
+            return "search";
+        if (isFavoritesView)
+            return "favorites";
+        CategoryEntry entry = getSelectedCategoryEntry();
+        if (entry != null && entry.category != null)
+            return entry.category.name;
+        return "unknown";
+    }
+
+    private void saveCurrentFilterState() {
+        if (activeCheckbox != null && favoritesCheckbox != null && unboundCheckbox != null) {
+            tabFilterStates.put(currentTabKey, new FilterState(
+                    activeCheckbox.checked,
+                    favoritesCheckbox.checked,
+                    unboundCheckbox.checked));
+        }
+    }
+
+    private void loadFilterState() {
+        currentTabKey = getCurrentTabKey();
+        FilterState state = tabFilterStates.get(currentTabKey);
+        if (state != null) {
+            if (activeCheckbox != null)
+                activeCheckbox.checked = state.active();
+            if (favoritesCheckbox != null)
+                favoritesCheckbox.checked = state.favorites();
+            if (unboundCheckbox != null)
+                unboundCheckbox.checked = state.unbound();
+        } else {
+            if (activeCheckbox != null)
+                activeCheckbox.checked = false;
+            if (favoritesCheckbox != null)
+                favoritesCheckbox.checked = false;
+            if (unboundCheckbox != null)
+                unboundCheckbox.checked = false;
+        }
     }
 
     @Override
@@ -155,8 +214,42 @@ public class GuiPlusModulesScreen extends TabScreen {
         searchBox = contentView.add(theme.textBox(currentSearch, "Search...")).expandX().widget();
         searchBox.action = () -> {
             currentSearch = searchBox.get();
+            updateHistoryDropdown();
             refreshGrid();
         };
+
+        WHorizontalList filterRow = contentView.add(theme.horizontalList()).expandX().widget();
+
+        filterRow.add(theme.label("Active"));
+        activeCheckbox = filterRow.add(theme.checkbox(false)).widget();
+        activeCheckbox.action = () -> {
+            refreshGrid();
+        };
+
+        filterRow.add(theme.label("Favorites"));
+        favoritesCheckbox = filterRow.add(theme.checkbox(false)).widget();
+        favoritesCheckbox.action = () -> {
+            refreshGrid();
+        };
+
+        filterRow.add(theme.label("Unbound"));
+        unboundCheckbox = filterRow.add(theme.checkbox(false)).widget();
+        unboundCheckbox.action = () -> {
+            refreshGrid();
+        };
+
+        loadFilterState();
+
+        filterRow.add(theme.button("Clear")).widget().action = () -> {
+            activeCheckbox.checked = false;
+            favoritesCheckbox.checked = false;
+            unboundCheckbox.checked = false;
+            refreshGrid();
+        };
+
+        historyDropdown = new WVerticalList();
+        historyDropdown.visible = false;
+        contentView.add(historyDropdown).expandX();
 
         gridScrollView = (WView) theme.view();
         gridScrollView.maxHeight = Double.MAX_VALUE;
@@ -227,16 +320,86 @@ public class GuiPlusModulesScreen extends TabScreen {
             }
         }
 
+        boolean hasActiveFilter = (activeCheckbox != null && activeCheckbox.checked) ||
+                (favoritesCheckbox != null && favoritesCheckbox.checked) ||
+                (unboundCheckbox != null && unboundCheckbox.checked);
+
+        if (hasActiveFilter) {
+            result.removeIf(m -> {
+                boolean matchesActive = activeCheckbox != null && activeCheckbox.checked && m.isActive();
+                boolean matchesFavorites = favoritesCheckbox != null && favoritesCheckbox.checked && m.favorite;
+                boolean matchesUnbound = unboundCheckbox != null && unboundCheckbox.checked && !m.keybind.isSet();
+                return !(matchesActive || matchesFavorites || matchesUnbound);
+            });
+        }
+
         result.sort(Comparator.comparing(m -> m.title.toLowerCase()));
         return result;
     }
 
+    private void updateHistoryDropdown() {
+        if (historyDropdown == null)
+            return;
+
+        boolean historyEnabled = theme instanceof GuiPlusTheme gpt && gpt.enableSearchHistory.get();
+
+        if (!historyEnabled || currentSearch.isEmpty()) {
+            historyDropdown.visible = false;
+            historyDropdown.clear();
+            currentHistorySuggestions.clear();
+            return;
+        }
+
+        String searchLower = currentSearch.toLowerCase();
+        currentHistorySuggestions = searchHistory.stream()
+                .filter(h -> h.toLowerCase().contains(searchLower))
+                .limit(5)
+                .collect(Collectors.toList());
+
+        historyDropdown.clear();
+
+        if (currentHistorySuggestions.isEmpty()) {
+            historyDropdown.visible = false;
+            return;
+        }
+
+        for (String suggestion : currentHistorySuggestions) {
+            var button = historyDropdown.add(theme.button(suggestion)).expandX().widget();
+            button.action = () -> {
+                currentSearch = suggestion;
+                searchBox.set(suggestion);
+                addToHistory(suggestion);
+                historyDropdown.visible = false;
+                refreshGrid();
+            };
+        }
+
+        historyDropdown.visible = true;
+    }
+
+    private void addToHistory(String search) {
+        if (search.isEmpty())
+            return;
+
+        searchHistory.remove(search);
+        searchHistory.add(0, search);
+
+        if (searchHistory.size() > MAX_HISTORY_SIZE) {
+            searchHistory.remove(searchHistory.size() - 1);
+        }
+    }
+
     private CategoryEntry getSelectedCategoryEntry() {
-        if (sidebar == null)
+        if (sidebar == null) {
             return null;
+        }
+
         int idx = sidebar.getSelected();
-        if (idx >= 0 && idx < categories.size())
+
+        if (idx >= 0 && idx < categories.size()) {
             return categories.get(idx);
+        }
+
         return null;
     }
 
@@ -285,6 +448,21 @@ public class GuiPlusModulesScreen extends TabScreen {
                 searchBox.setCursorMax();
             }
             return true;
+        }
+
+        if (value.key() == KEY_RETURN && searchBox != null && searchBox.isFocused()) {
+            if (!currentHistorySuggestions.isEmpty()) {
+                currentSearch = currentHistorySuggestions.get(0);
+                searchBox.set(currentSearch);
+                addToHistory(currentSearch);
+                historyDropdown.visible = false;
+                refreshGrid();
+                return true;
+            } else if (!currentSearch.isEmpty()) {
+                addToHistory(currentSearch);
+                historyDropdown.visible = false;
+                return true;
+            }
         }
 
         if (value.key() == KEY_ESCAPE && selectedModule != null) {
@@ -345,6 +523,7 @@ public class GuiPlusModulesScreen extends TabScreen {
         public void init() {
             sidebar = new WCategorySidebar();
             sidebar.onSelectionChanged = () -> {
+                saveCurrentFilterState();
                 CategoryEntry entry = getSelectedCategoryEntry();
                 if (entry != null) {
                     isSearchView = entry.isSearch;
