@@ -11,10 +11,10 @@ import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import net.minecraft.client.gui.screens.Screen;
 
 public class GuiPlusTheme extends MeteorGuiTheme {
-    private final SettingGroup sgGeneral = settings.createGroup("General");
+    private final SettingGroup sgGuiPlus = settings.createGroup("GUI Plus");
     private final SettingGroup sgCategoryColors = settings.createGroup("Category Colors");
 
-    public final Setting<Boolean> enableSearchHistory = sgGeneral.add(new BoolSetting.Builder()
+    public final Setting<Boolean> enableSearchHistory = sgGuiPlus.add(new BoolSetting.Builder()
             .name("enable-search-history")
             .description("Enable search history suggestions.")
             .defaultValue(false)
