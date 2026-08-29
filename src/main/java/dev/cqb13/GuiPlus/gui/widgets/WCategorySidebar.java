@@ -1,5 +1,6 @@
 package dev.cqb13.GuiPlus.gui.widgets;
 
+import dev.cqb13.GuiPlus.gui.GuiPlusTheme;
 import meteordevelopment.meteorclient.gui.renderer.GuiRenderer;
 import meteordevelopment.meteorclient.gui.themes.meteor.MeteorGuiTheme;
 import meteordevelopment.meteorclient.gui.utils.Cell;
@@ -27,8 +28,8 @@ public class WCategorySidebar extends WContainer {
 
     public Runnable onSelectionChanged;
 
-    public void addButton(String label, Category category) {
-        SidebarButton button = new SidebarButton(label, category);
+    public void addButton(String label, Category category, int moduleCount) {
+        SidebarButton button = new SidebarButton(label, category, moduleCount);
         buttons.add(button);
         super.add(button);
     }
@@ -113,12 +114,14 @@ public class WCategorySidebar extends WContainer {
     public class SidebarButton extends WPressable {
         public final String label;
         public final Category category;
+        public final int moduleCount;
         private double animProgress;
         private int cachedIndex = -1;
 
-        public SidebarButton(String label, Category category) {
+        public SidebarButton(String label, Category category, int moduleCount) {
             this.label = label;
             this.category = category;
+            this.moduleCount = moduleCount;
         }
 
         private int getIndex() {
@@ -131,8 +134,15 @@ public class WCategorySidebar extends WContainer {
         @Override
         protected void onCalculateSize() {
             double pad = theme.scale(BUTTON_PADDING);
+            boolean showCounts = theme instanceof GuiPlusTheme gpt && gpt.showModuleCounts.get();
+
             width = theme.textWidth(label) + pad * 2 + theme.scale(EXTRA_PADDING);
             height = theme.textHeight() + pad * 2;
+
+            if (showCounts && category != null) {
+                String countText = "(" + moduleCount + ")";
+                width += theme.textWidth(countText) + theme.scale(4);
+            }
 
             if (theme.categoryIcons()) {
                 width += height;
@@ -196,6 +206,15 @@ public class WCategorySidebar extends WContainer {
 
             renderer.text(label, textX, y + height / 2.0 - theme.textHeight() / 2.0,
                     theme.textColor(), false);
+
+            boolean showCounts = theme instanceof GuiPlusTheme gpt && gpt.showModuleCounts.get();
+            if (showCounts && category != null) {
+                String countText = "(" + moduleCount + ")";
+                double countWidth = theme.textWidth(countText);
+                double countX = x + width - countWidth - pad;
+                renderer.text(countText, countX, y + height / 2.0 - theme.textHeight() / 2.0,
+                        theme.textSecondaryColor(), false);
+            }
         }
     }
 }

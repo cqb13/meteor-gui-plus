@@ -6,8 +6,6 @@ Meteor theme for a grid GUI
 
 ## Upcoming Features
 
-- Sidebar Enhancements
-    - Module counts in each category, Custom category ordering by dragging, category hiding
 - Module Display: Show keybinds on buttons
 
 ## Showcase

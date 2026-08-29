@@ -100,29 +100,17 @@ public class GuiPlusModulesScreen extends TabScreen {
     private void loadFilterState() {
         currentTabKey = getCurrentTabKey();
         FilterState state = tabFilterStates.get(currentTabKey);
-        boolean active = state != null && state.active();
-        boolean favorites = state != null && state.favorites();
-        boolean unbound = state != null && state.unbound();
-
-        if (activeCheckbox != null)
-            activeCheckbox.checked = active;
-        if (favoritesCheckbox != null)
-            favoritesCheckbox.checked = favorites;
-        if (unboundCheckbox != null)
-            unboundCheckbox.checked = unbound;
+        activeCheckbox.checked = state != null && state.active();
+        favoritesCheckbox.checked = state != null && state.favorites();
+        unboundCheckbox.checked = state != null && state.unbound();
     }
 
-    private boolean matchesSearch(Module m) {
+    private boolean matchesSearch(Module m, boolean includeDescription) {
         if (searchText.isEmpty())
             return true;
         String searchLower = searchText.toLowerCase();
-        return m.title.toLowerCase().contains(searchLower) || m.description.toLowerCase().contains(searchLower);
-    }
-
-    private boolean matchesTitleSearch(Module m) {
-        if (searchText.isEmpty())
-            return true;
-        return m.title.toLowerCase().contains(searchText.toLowerCase());
+        return m.title.toLowerCase().contains(searchLower)
+                || (includeDescription && m.description.toLowerCase().contains(searchLower));
     }
 
     private boolean passesQuickFilters(Module m) {
@@ -144,56 +132,50 @@ public class GuiPlusModulesScreen extends TabScreen {
     public void initWidgets() {
         categories.clear();
 
-        categories.add(new CategoryEntry("Search", null, true, false, false));
+        categories.add(new CategoryEntry("Search", null, true, false, false, 0));
 
         List<Category> defaultCategories = List.of(
                 Categories.Combat, Categories.Player, Categories.Movement,
                 Categories.Render, Categories.World, Categories.Misc);
 
         for (Category category : defaultCategories) {
-            if (hasVisibleModules(category)) {
-                categories.add(new CategoryEntry(category.name, category, false, false, false));
+            int count = getVisibleModuleCount(category);
+            if (count > 0) {
+                categories.add(new CategoryEntry(category.name, category, false, false, false, count));
             }
         }
 
-        List<Category> addonCategories = new ArrayList<>();
+        List<CategoryEntry> addonEntries = new ArrayList<>();
         for (Category category : Modules.loopCategories()) {
             if (!defaultCategories.contains(category)) {
-                if (hasVisibleModules(category)) {
-                    addonCategories.add(category);
+                int count = getVisibleModuleCount(category);
+                if (count > 0) {
+                    addonEntries.add(new CategoryEntry(category.name, category, false, false, false, count));
                 }
             }
         }
 
-        addonCategories.sort(this::compareCategoriesByAddon);
+        addonEntries.sort((a, b) -> {
+            int addonCompare = getAddonNameForCategory(a.category)
+                    .compareToIgnoreCase(getAddonNameForCategory(b.category));
+            return addonCompare != 0 ? addonCompare : a.name.compareToIgnoreCase(b.name);
+        });
+        categories.addAll(addonEntries);
 
-        for (Category category : addonCategories) {
-            categories.add(new CategoryEntry(category.name, category, false, false, false));
-        }
+        int favoritesCount = (int) Modules.get().getAll().stream().filter(m -> m.favorite).count();
+        categories.add(new CategoryEntry("Favorites", null, false, true, false, favoritesCount));
 
-        categories.add(new CategoryEntry("Favorites", null, false, true, false));
-        categories.add(new CategoryEntry("Recent", null, false, false, true));
+        int recentCount = ModuleUsageTracker.getRecentlyUsedModules(MAX_RECENT_MODULES).size();
+        categories.add(new CategoryEntry("Recent", null, false, false, true, recentCount));
 
         WLayout layout = new WLayout();
         addDirect(layout).expandX().expandWidgetY();
     }
 
-    private int compareCategoriesByAddon(Category c1, Category c2) {
-        String addon1 = getAddonNameForCategory(c1);
-        String addon2 = getAddonNameForCategory(c2);
-        int addonCompare = addon1.compareToIgnoreCase(addon2);
-        if (addonCompare != 0)
-            return addonCompare;
-        return c1.name.compareToIgnoreCase(c2.name);
-    }
-
-    private boolean hasVisibleModules(Category category) {
-        for (Module module : Modules.get().getGroup(category)) {
-            if (!Config.get().hiddenModules.get().contains(module)) {
-                return true;
-            }
-        }
-        return false;
+    private int getVisibleModuleCount(Category category) {
+        return (int) Modules.get().getGroup(category).stream()
+                .filter(m -> !Config.get().hiddenModules.get().contains(m))
+                .count();
     }
 
     private String getAddonNameForCategory(Category category) {
@@ -219,9 +201,8 @@ public class GuiPlusModulesScreen extends TabScreen {
     private void buildGridView() {
         if (settingsPanel != null) {
             settingsPanel.cleanup();
+            settingsPanel = null;
         }
-        selectedModule = null;
-        settingsPanel = null;
 
         if (contentView == null)
             return;
@@ -315,24 +296,24 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         if (isSearchView) {
             for (Module m : Modules.get().getAll()) {
-                if (matchesSearch(m))
+                if (matchesSearch(m, true))
                     result.add(m);
             }
         } else if (isFavoritesView) {
             for (Module m : Modules.get().getAll()) {
-                if (m.favorite && matchesTitleSearch(m))
+                if (m.favorite && matchesSearch(m, false))
                     result.add(m);
             }
         } else if (isRecentView) {
             for (Module m : ModuleUsageTracker.getRecentlyUsedModules(MAX_RECENT_MODULES)) {
-                if (matchesTitleSearch(m))
+                if (matchesSearch(m, false))
                     result.add(m);
             }
         } else {
             CategoryEntry entry = getSelectedCategoryEntry();
             if (entry != null && entry.category != null) {
                 for (Module m : Modules.get().getGroup(entry.category)) {
-                    if (!Config.get().hiddenModules.get().contains(m) && matchesTitleSearch(m)) {
+                    if (!Config.get().hiddenModules.get().contains(m) && matchesSearch(m, false)) {
                         result.add(m);
                     }
                 }
@@ -560,7 +541,7 @@ public class GuiPlusModulesScreen extends TabScreen {
             };
 
             for (CategoryEntry cat : categories) {
-                sidebar.addButton(cat.name, cat.category);
+                sidebar.addButton(cat.name, cat.category, cat.moduleCount);
             }
             sidebar.setSelected(0);
             add(sidebar);
@@ -615,7 +596,7 @@ public class GuiPlusModulesScreen extends TabScreen {
     }
 
     private record CategoryEntry(String name, Category category, boolean isSearch, boolean isFavorites,
-            boolean isRecent) {
+            boolean isRecent, int moduleCount) {
     }
 
     private class WCenteredContainer extends WContainer {

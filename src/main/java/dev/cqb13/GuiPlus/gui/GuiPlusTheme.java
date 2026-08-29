@@ -11,11 +11,18 @@ import net.minecraft.client.gui.screens.Screen;
 public class GuiPlusTheme extends MeteorGuiTheme {
     private final SettingGroup sgGuiPlus = settings.createGroup("GUI Plus");
     private final SettingGroup sgGridCustomization = settings.createGroup("Grid Customization");
+    private final SettingGroup sgSidebar = settings.createGroup("Sidebar");
     private final SettingGroup sgCategoryColors = settings.createGroup("Category Colors");
 
     public final Setting<Boolean> enableSearchHistory = sgGuiPlus.add(new BoolSetting.Builder()
             .name("enable-search-history")
             .description("Enable search history suggestions.")
+            .defaultValue(false)
+            .build());
+
+    public final Setting<Boolean> showModuleCounts = sgSidebar.add(new BoolSetting.Builder()
+            .name("show-module-counts")
+            .description("Show module count next to each category in the sidebar.")
             .defaultValue(false)
             .build());
 
