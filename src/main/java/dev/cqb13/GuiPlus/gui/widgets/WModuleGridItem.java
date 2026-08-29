@@ -1,9 +1,12 @@
 package dev.cqb13.GuiPlus.gui.widgets;
 
+import dev.cqb13.GuiPlus.gui.GuiPlusTheme;
+import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.gui.renderer.GuiRenderer;
 import meteordevelopment.meteorclient.gui.themes.meteor.MeteorGuiTheme;
 import meteordevelopment.meteorclient.gui.utils.AlignmentX;
 import meteordevelopment.meteorclient.gui.widgets.pressable.WPressable;
+import meteordevelopment.meteorclient.systems.modules.Categories;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import net.minecraft.util.Mth;
@@ -77,8 +80,37 @@ public class WModuleGridItem extends WPressable {
         Color moduleBgColor = mgt.moduleBackground.get();
         Color accentColor = mgt.accentColor.get();
 
+        Color renderColor = bgColor;
+
+        if (theme instanceof GuiPlusTheme gpt && gpt.categoryColors.get()) {
+            Color categoryColor = null;
+
+            if (module.addon != null && module.addon != MeteorClient.ADDON) {
+                categoryColor = new Color(module.addon.color.r, module.addon.color.g, module.addon.color.b,
+                        gpt.addonOpacity.get());
+            } else {
+                if (module.category == Categories.Combat) {
+                    categoryColor = gpt.combatColor.get();
+                } else if (module.category == Categories.Player) {
+                    categoryColor = gpt.playerColor.get();
+                } else if (module.category == Categories.Movement) {
+                    categoryColor = gpt.movementColor.get();
+                } else if (module.category == Categories.Render) {
+                    categoryColor = gpt.renderColor.get();
+                } else if (module.category == Categories.World) {
+                    categoryColor = gpt.worldColor.get();
+                } else if (module.category == Categories.Misc) {
+                    categoryColor = gpt.miscColor.get();
+                }
+            }
+
+            if (categoryColor != null) {
+                renderColor = categoryColor;
+            }
+        }
+
         double s = theme.scale(OUTLINE_THICKNESS);
-        renderer.quad(x + s, y + s, width - s * 2, height - s * 2, bgColor);
+        renderer.quad(x + s, y + s, width - s * 2, height - s * 2, renderColor);
         renderer.quad(x, y, width, s, outlineColor);
         renderer.quad(x, y + height - s, width, s, outlineColor);
         renderer.quad(x, y + s, s, height - s * 2, outlineColor);
