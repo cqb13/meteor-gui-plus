@@ -7,6 +7,7 @@ Meteor theme for a grid GUI
 ## Upcoming Features
 
 - Module Display: Show keybinds on buttons
+- Improve visual: better favorite and active module indication
 
 ## Showcase
 
