@@ -17,7 +17,7 @@ public class WCategorySidebar extends WContainer {
     private static final int OUTLINE_THICKNESS = 2;
     private static final int BUTTON_PADDING = 6;
     private static final int EXTRA_PADDING = 4;
-    private static final double ANIMATION_SPEED = 8;
+    private static final double ANIMATION_SPEED = 16;
     private static final int ACCENT_BAR_WIDTH = 2;
     private static final int ICON_SPACING = 2;
     private static final double ICON_SCALE_DIVISOR = 16.0;
@@ -167,6 +167,9 @@ public class WCategorySidebar extends WContainer {
             animProgress += delta * ANIMATION_SPEED * (targetAnim - animProgress);
             animProgress = Mth.clamp(animProgress, 0, 1);
 
+            if (animProgress < 0.01)
+                animProgress = 0;
+
             MeteorGuiTheme mgt = (MeteorGuiTheme) theme;
             Color bgColor = mgt.backgroundColor.get();
             Color hoverBg = mgt.backgroundColor.get(false, true);
@@ -233,6 +236,9 @@ public class WCategorySidebar extends WContainer {
             double targetAnim = mouseOver ? 1 : 0;
             animProgress += delta * ANIMATION_SPEED * (targetAnim - animProgress);
             animProgress = Mth.clamp(animProgress, 0, 1);
+
+            if (animProgress < 0.01)
+                animProgress = 0;
 
             MeteorGuiTheme mgt = (MeteorGuiTheme) theme;
             Color bgColor = mgt.backgroundColor.get();
