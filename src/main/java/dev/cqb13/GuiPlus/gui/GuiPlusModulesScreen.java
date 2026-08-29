@@ -47,8 +47,8 @@ public class GuiPlusModulesScreen extends TabScreen {
     private boolean isFavoritesView = false;
 
     private WModuleGrid moduleGrid;
-    private WView contentView;
-    private WVerticalList contentList;
+    private WVerticalList contentView;
+    private WView gridScrollView;
 
     public GuiPlusModulesScreen(GuiTheme theme) {
         super(theme, Tabs.get().getFirst());
@@ -149,23 +149,26 @@ public class GuiPlusModulesScreen extends TabScreen {
 
         contentView.clear();
 
-        contentList = new WVerticalList();
-        contentView.add(contentList).expandX().expandWidgetY();
-
         double scale = (theme instanceof GuiPlusTheme gpt) ? gpt.scale.get() : 1.0;
         double itemHeight = theme.scale(DEFAULT_MODULE_HEIGHT * scale);
 
-        searchBox = contentList.add(theme.textBox(currentSearch, "Search...")).expandX().widget();
+        searchBox = contentView.add(theme.textBox(currentSearch, "Search...")).expandX().widget();
         searchBox.action = () -> {
             currentSearch = searchBox.get();
             refreshGrid();
         };
 
+        gridScrollView = (WView) theme.view();
+        gridScrollView.maxHeight = Double.MAX_VALUE;
+        gridScrollView.scrollOnlyWhenMouseOver = true;
+        gridScrollView.hasScrollBar = true;
+        contentView.add(gridScrollView).expandX().expandWidgetY();
+
         moduleGrid = new WModuleGrid(itemHeight);
         moduleGrid.onModuleRightClick = (module) -> {
             selectModule(module);
         };
-        contentList.add(moduleGrid).expandX();
+        gridScrollView.add(moduleGrid).expandX();
 
         refreshGrid();
 
@@ -354,11 +357,9 @@ public class GuiPlusModulesScreen extends TabScreen {
             sidebar.setSelected(0);
             add(sidebar);
 
-            contentView = (WView) theme.view();
-            contentView.maxHeight = Double.MAX_VALUE;
-            contentView.scrollOnlyWhenMouseOver = true;
-            contentView.hasScrollBar = true;
-            add(contentView).expandX();
+            contentView = new WVerticalList();
+            contentView.theme = theme;
+            add(contentView).expandX().expandWidgetY();
 
             buildContent();
         }
