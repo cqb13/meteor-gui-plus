@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.fabric.loom)
 }
-
 val archivesBaseName = providers.gradleProperty("archives_base_name").get()
 val mavenGroup = providers.gradleProperty("maven_group").get()
 
@@ -74,9 +73,10 @@ tasks {
 
     jar {
         inputs.property("archivesName", archivesBaseName)
+        val licenseName = "LICENSE_$archivesBaseName"
 
         from("LICENSE") {
-            rename { "${it}_$archivesBaseName" }
+            rename("LICENSE", licenseName)
         }
     }
 
